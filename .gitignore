@@ -1,5 +1,5 @@
+./config
 node_modules
 yarn.error
 doc/
 .DS_Store
-./config

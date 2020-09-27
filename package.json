@@ -3,14 +3,31 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "env-cmd -f ./config/prod.env babel-node ./bin/www",
+    "start:dev": "env-cmd -f ./config/prod.env nodemon --exec babel-node ./bin/www",
+    "test": "env-cmd -f ./config/test.env babel-node ./bin/www",
+    "dev": "env-cmd -f ./config/dev.env nodemon --exec babel-node ./bin/www",
+    "dev:debug": "yarn dev --inspect"
   },
   "dependencies": {
+    "@babel/cli": "^7.11.6",
+    "@babel/core": "^7.11.6",
+    "@babel/node": "^7.10.5",
+    "@babel/preset-env": "^7.11.5",
+    "axios": "^0.20.0",
+    "bcrypt": "^5.0.0",
     "cookie-parser": "~1.4.4",
+    "cors": "^2.8.5",
     "debug": "~2.6.9",
+    "env-cmd": "^10.1.0",
     "express": "~4.16.1",
+    "helmet": "^4.1.1",
     "http-errors": "~1.6.3",
     "jade": "~1.11.0",
+    "mongoose": "^5.10.7",
     "morgan": "~1.9.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.4"
   }
 }

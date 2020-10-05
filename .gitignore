@@ -3,3 +3,4 @@ yarn.error
 doc/
 .DS_Store
 config/
+models/

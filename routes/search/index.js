@@ -1,5 +1,6 @@
 import express from "express";
 import { MonitoringData } from "../../models";
+import _ from "lodash";
 const router = express.Router();
 
 // Set Elasticsearch
@@ -26,356 +27,142 @@ router.get("/data", async (req, res) => {
     //     sortQuery.$sort[`detailData.${key}`] = "desc";
     //   }
     // }
+    let matchQuery = {
+      index: "monitoringdata",
+      body: {
+        sort: {
+          "detailData.uploadedAt": "desc",
+        },
+        _source: [
+          "detailData.content",
+          "detailData.uploadedAt",
+          "detailData.postTitle",
+          "detailData.commentCount",
+          "detailData.likeCount",
+          "detailData.dislikeCount",
+          "detailData.viewCount",
+          "detailData.isTransaction",
+          "trainedResult",
+          "sentimentAnalysisResult",
+          "brandId",
+          "channelKeyname",
+          "articleCode",
+        ],
+        query: {
+          bool: {
+            filter: [
+              {
+                term: {
+                  brandId: "mcd",
+                  // brandId: req.user.brandId,
+                },
+              },
+              {
+                terms: {
+                  channelKeyname: ["naver-blog", "instagram"],
+                  // channelKeyname: req.body.channels,
+                },
+              },
+              {
+                range: {
+                  "detailData.uploadedAt": {
+                    gte: 1596121199999,
+                    lte: 1600786799999,
+                  },
+                },
+                // range: {
+                //   "detailData.uploadedAt": {
+                //     gte: new Date(req.body.startAt).getTime(),
+                //     lte: new Date(req.body.endAt).getTime(),
+                //   },
+                // },
+              },
+              {
+                bool: {
+                  should: [
+                    {
+                      bool: {
+                        filter: [
+                          {
+                            terms: {
+                              sentimentAnalysisResult: [0, 1, 2, 3],
+                            },
+                          },
+                          {
+                            bool: {
+                              must_not: {
+                                exists: {
+                                  field: "trainedResult",
+                                },
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                    {
+                      bool: {
+                        filter: {
+                          terms: {
+                            trainedResult: [0, 1, 2, 3],
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    };
+    let searchQuery = [
+      {
+        multi_match: {
+          query: req.body.searchInput,
+          fields: [
+            "detailData.content",
+            "detailData.contentPlainText",
+            "detailData.postTitle",
+          ],
+        },
+      },
+    ];
 
     let result;
     if (req.body.searchInput) {
-      console.log("searchInput 있음");
+      matchQuery.body.query.bool["must"] = searchQuery;
+      let aggMatchQuery = _.cloneDeep(matchQuery);
+      aggMatchQuery.body["size"] = 0;
+      aggMatchQuery.body["aggs"] = {
+        count_for_channels: {
+          terms: {
+            field: "channelKeyname",
+          },
+        },
+      };
       result = await Promise.all([
-        esClient.search({
-          index: "monitoringdata",
-          body: {
-            sort: {
-              "detailData.uploadedAt": "desc",
-            },
-            _source: [
-              "detailData.content",
-              "detailData.uploadedAt",
-              "detailData.postTitle",
-              "detailData.commentCount",
-              "detailData.likeCount",
-              "detailData.dislikeCount",
-              "detailData.viewCount",
-              "detailData.isTransaction",
-              "trainedResult",
-              "sentimentAnalysisResult",
-              "brandId",
-              "channelKeyname",
-              "articleCode",
-            ],
-            query: {
-              bool: {
-                must: [
-                  {
-                    multi_match: {
-                      query: req.body.searchInput,
-                      fields: [
-                        "detailData.content",
-                        "detailData.contentPlainText",
-                        "detailData.postTitle",
-                      ],
-                    },
-                  },
-                ],
-                filter: [
-                  {
-                    term: {
-                      brandId: "mcd",
-                      // brandId: req.user.brandId,
-                    },
-                  },
-                  {
-                    terms: {
-                      channelKeyname: ["naver-blog", "instagram"],
-                      // channelKeyname: req.body.channels,
-                    },
-                  },
-                  {
-                    range: {
-                      "detailData.uploadedAt": {
-                        gte: 1596121199999,
-                        lte: 1600786799999,
-                      },
-                    },
-                    // range: {
-                    //   "detailData.uploadedAt": {
-                    //     gte: new Date(req.body.startAt).getTime(),
-                    //     lte: new Date(req.body.endAt).getTime(),
-                    //   },
-                    // },
-                  },
-                  // {
-                  //   bool: {
-                  //     should: [
-                  //       {
-                  //         bool: {
-                  //           filter: [
-                  //             {
-                  //               terms: {
-                  //                 sentimentAnalysisResult: [0, 1, 2, 3],
-                  //               },
-                  //             },
-                  //             {
-                  //               term: {
-                  //                 trainedResult: null,
-                  //               },
-                  //             },
-                  //           ],
-                  //         },
-                  //       },
-                  //       {
-                  //         terms: {
-                  //           trainedResult: [0, 1, 2, 3],
-                  //         },
-                  //       },
-                  //     ],
-                  //   },
-                  // },
-                ],
-              },
-            },
-          },
-        }),
-        esClient.search({
-          index: "monitoringdata",
-          body: {
-            sort: {
-              "detailData.uploadedAt": "desc",
-            },
-            size: 0,
-            query: {
-              bool: {
-                must: [
-                  {
-                    multi_match: {
-                      query: req.body.searchInput,
-                      fields: [
-                        "detailData.content",
-                        "detailData.contentPlainText",
-                        "detailData.postTitle",
-                      ],
-                    },
-                  },
-                ],
-                filter: [
-                  {
-                    term: {
-                      brandId: "mcd",
-                      // brandId: req.user.brandId,
-                    },
-                  },
-                  {
-                    terms: {
-                      channelKeyname: ["naver-blog", "instagram"],
-                      // channelKeyname: req.body.channels,
-                    },
-                  },
-                  {
-                    range: {
-                      "detailData.uploadedAt": {
-                        gte: 1596121199999,
-                        lte: 1600786799999,
-                      },
-                    },
-                    // range: {
-                    //   "detailData.uploadedAt": {
-                    //     gte: new Date(req.body.startAt).getTime(),
-                    //     lte: new Date(req.body.endAt).getTime(),
-                    //   },
-                    // },
-                  },
-                  // {
-                  //   bool: {
-                  //     should: [
-                  //       {
-                  //         bool: {
-                  //           filter: [
-                  //             {
-                  //               terms: {
-                  //                 sentimentAnalysisResult: [0, 1, 2, 3],
-                  //               },
-                  //             },
-                  //             {
-                  //               term: {
-                  //                 trainedResult: null,
-                  //               },
-                  //             },
-                  //           ],
-                  //         },
-                  //       },
-                  //       {
-                  //         terms: {
-                  //           trainedResult: [0, 1, 2, 3],
-                  //         },
-                  //       },
-                  //     ],
-                  //   },
-                  // },
-                ],
-              },
-            },
-            aggs: {
-              count_for_channels: {
-                terms: {
-                  field: "channelKeyname",
-                },
-              },
-            },
-          },
-        }),
+        esClient.search(matchQuery),
+        esClient.search(aggMatchQuery),
       ]);
     } else {
-      console.log("searchInput 없음");
+      let aggMatchQuery = _.cloneDeep(matchQuery);
+      aggMatchQuery.body["size"] = 0;
+      aggMatchQuery.body["aggs"] = {
+        count_for_channels: {
+          terms: {
+            field: "channelKeyname",
+          },
+        },
+      };
       result = await Promise.all([
-        esClient.search({
-          index: "monitoringdata",
-          body: {
-            _source: [
-              "detailData.content",
-              "detailData.uploadedAt",
-              "detailData.postTitle",
-              "detailData.commentCount",
-              "detailData.likeCount",
-              "detailData.dislikeCount",
-              "detailData.viewCount",
-              "detailData.isTransaction",
-              "trainedResult",
-              "sentimentAnalysisResult",
-              "brandId",
-              "channelKeyname",
-              "articleCode",
-            ],
-            sort: {
-              "detailData.uploadedAt": "desc",
-            },
-            query: {
-              bool: {
-                filter: [
-                  {
-                    term: {
-                      brandId: "mcd",
-                      // brandId: req.user.brandId,
-                    },
-                  },
-                  {
-                    terms: {
-                      channelKeyname: ["naver-blog", "instagram"],
-                      // channelKeyname: req.body.channels,
-                    },
-                  },
-                  {
-                    range: {
-                      "detailData.uploadedAt": {
-                        gte: 1596121199999,
-                        lte: 1600786799999,
-                      },
-                    },
-                    // range: {
-                    //   "detailData.uploadedAt": {
-                    //     gte: new Date(req.body.startAt).getTime(),
-                    //     lte: new Date(req.body.endAt).getTime(),
-                    //   },
-                    // },
-                  },
-                  // {
-                  //   bool: {
-                  //     should: [
-                  //       {
-                  //         bool: {
-                  //           filter: [
-                  //             {
-                  //               terms: {
-                  //                 sentimentAnalysisResult: [0, 1, 2, 3],
-                  //               },
-                  //             },
-                  //             {
-                  //               term: {
-                  //                 trainedResult: null,
-                  //               },
-                  //             },
-                  //           ],
-                  //         },
-                  //       },
-                  //       {
-                  //         terms: {
-                  //           trainedResult: [0, 1, 2, 3],
-                  //         },
-                  //       },
-                  //     ],
-                  //   },
-                  // },
-                ],
-              },
-            },
-          },
-        }),
-        esClient.search({
-          index: "monitoringdata",
-          body: {
-            sort: {
-              "detailData.uploadedAt": "desc",
-            },
-            query: {
-              bool: {
-                filter: [
-                  {
-                    term: {
-                      brandId: "mcd",
-                      // brandId: req.user.brandId,
-                    },
-                  },
-                  {
-                    terms: {
-                      channelKeyname: ["naver-blog", "instagram"],
-                      // channelKeyname: req.body.channels,
-                    },
-                  },
-                  {
-                    range: {
-                      "detailData.uploadedAt": {
-                        gte: 1596121199999,
-                        lte: 1600786799999,
-                      },
-                    },
-                    // range: {
-                    //   "detailData.uploadedAt": {
-                    //     gte: new Date(req.body.startAt).getTime(),
-                    //     lte: new Date(req.body.endAt).getTime(),
-                    //   },
-                    // },
-                  },
-                  // {
-                  //   bool: {
-                  //     should: [
-                  //       {
-                  //         bool: {
-                  //           filter: [
-                  //             {
-                  //               terms: {
-                  //                 sentimentAnalysisResult: [0, 1, 2, 3],
-                  //               },
-                  //             },
-                  //             {
-                  //               term: {
-                  //                 trainedResult: null,
-                  //               },
-                  //             },
-                  //           ],
-                  //         },
-                  //       },
-                  //       {
-                  //         terms: {
-                  //           trainedResult: [0, 1, 2, 3],
-                  //         },
-                  //       },
-                  //     ],
-                  //   },
-                  // },
-                ],
-              },
-            },
-            aggs: {
-              count_for_channels: {
-                terms: {
-                  field: "channelKeyname",
-                },
-              },
-            },
-          },
-        }),
+        esClient.search(matchQuery),
+        esClient.search(aggMatchQuery),
       ]);
     }
-    // result[0] = result[0].body.hits.hits.map((doc) => doc._source);
-    // result[1] = result[1].body.aggregations.count_for_channels.buckets;
+    result[0] = result[0].body.hits.hits.map((doc) => doc._source);
+    result[1] = result[1].body.aggregations.count_for_channels.buckets;
     res.status(200).send(result);
   } catch (err) {
     console.error(err);
@@ -388,13 +175,14 @@ router.post("/data", async (req, res, next) => {
     `${process.env.ELASTICSEARCH_NODE_URL}/monitoringdata/_count`
   );
   const cnt = dataCount.data.count;
+  let limit = 7000;
   console.log(cnt);
-  const result = await MonitoringData.find(
-    {},
-    { _id: false, "detailData._id": false }
-  )
+  const result = await MonitoringData.aggregate([
+    { $addFields: { id: "$_id" } },
+    { $project: { _id: 0 } },
+  ])
     .skip(cnt)
-    .limit(6000);
+    .limit(limit);
   try {
     result.forEach((data) => {
       esClient.index({
@@ -411,4 +199,3 @@ router.post("/data", async (req, res, next) => {
 });
 
 export default router;
-

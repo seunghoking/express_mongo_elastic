@@ -10,7 +10,7 @@ const esClient = new Client({
   node: process.env.ELASTICSEARCH_NODE_URL,
 });
 
-router.get("/data", async (req, res) => {
+router.post("/data", async (req, res) => {
   try {
     // const skip = Number(req.body.currentPage) * Number(req.body.pageSize);
     // let sortQuery = { $sort: { "detailData.uploadedAt": "desc" } };

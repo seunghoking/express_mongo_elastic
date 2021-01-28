@@ -14,7 +14,6 @@ import {
 const router = express.Router(),
   cookieOptions = getCookieOption();
 
-const router = express.Router();
 // 참고
 // https://velog.io/@cyranocoding/PASSPORT.js-%EB%A1%9C-%EC%86%8C%EC%85%9C-%EB%A1%9C%EA%B7%B8%EC%9D%B8-%EA%B5%AC%ED%98%84%ED%95%98%EA%B8%B0
 
@@ -191,7 +190,7 @@ router.get("/in", async (req, res) => {
   try {
     const user = await User.findOne({
       id: req.query.userId,
-      brandId: req.query.brandId,
+      // brandId: req.query.brandId,
     });
 
     if (!user) {
@@ -213,7 +212,7 @@ router.get("/in", async (req, res) => {
     res.cookie("access_token", accessToken, cookieOptions);
     res.cookie("refresh_token", refreshToken, cookieOptions);
 
-    res.status(200).send(user.toPublicObject());
+    res.status(200).send(user);
   } catch (error) {
     console.error(error);
     res.status(500).send(error);
